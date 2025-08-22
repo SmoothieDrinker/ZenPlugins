@@ -5,10 +5,12 @@ import {
   Contact,
   fetchAccountOperations,
   fetchAccountsWithDetails,
+  fetchAccountOperationsV2,
   fetchAuth,
   fetchCards,
   fetchCheckOperation,
   fetchDepositsAndBondsWithDetails,
+  fetchGetClientInfoV3,
   fetchGetCustomerDeviceInfoQuery,
   fetchGetToken,
   fetchGetUserContacts,
@@ -21,10 +23,12 @@ import {
   fetchSaveUserOnDevice,
   fetchSetupSecurityParameters,
   fetchTriggerLogin,
-  fetchVerifyOTP
+  fetchVerifyOTP,
+  fetchTransactionDetails
 } from './fetchApi'
 import { getNumber, getOptArray } from '../../types/get'
 import { generateDevice, generateECDSAKey } from './utils'
+import { get } from 'lodash'
 
 async function askOtpCode (text: string): Promise<string> {
   const sms = await ZenMoney.readLine(text, { inputType: 'number' })
@@ -61,7 +65,7 @@ export async function login (preferences: Preferences, auth?: Auth): Promise<Ses
     await fetchGetCustomerDeviceInfoQuery({ username: preferences.login }, { auth, authorizationBearer })
     const { processReference } = await fetchPasscodeLogin({ username: preferences.login }, { auth, authorizationBearer })
     const { accessToken, refreshToken } = await fetchGetToken({ processReference }, { auth, authorizationBearer })
-    session = { auth: { ...auth, tmp: true }, authorizationBearer, accessToken, refreshToken, requestIndex: 0 }
+    session = { auth: { ...auth, tmp: true }, authorizationBearer, accessToken, refreshToken, requestIndex: 0, clientKey: null }
   } else {
     const device = generateDevice()
     const { privateKey, publicKey } = generateECDSAKey()
@@ -91,9 +95,13 @@ export async function login (preferences: Preferences, auth?: Auth): Promise<Ses
       accessToken,
       refreshToken,
       authorizationBearer,
-      requestIndex: lightSession2.requestIndex
+      requestIndex: lightSession2.requestIndex,
+      clientKey: null
     }
   }
+
+  const clientInfo = await fetchGetClientInfoV3(session)
+  session.clientKey = get(clientInfo, 'client.clientKey', null)
 
   return session
 }
@@ -122,3 +130,34 @@ export async function fetchTransactions (
   }
   return []
 }
+
+export async function fetchTransactionsV2 (
+  product: ConvertedProduct,
+  fromDate: Date,
+  toDate: Date,
+  session: Session
+): Promise<unknown[]> {
+  if (product.tag === 'account' || product.tag === 'deposit' || product.tag === 'loan') { // not yet implemented for loans
+    const transactions = [] 
+    await Promise.all((await fetchAccountOperationsV2(product.acctKey, fromDate, toDate, session)).map(async (transaction) => {
+      const operationDate = get(transaction, 'operationDate', null)
+      const docKey = get(transaction, 'docKey', null)
+      const entryId = get(transaction, 'entryId', null)
+
+      let details = null
+      try {
+        assert(operationDate && docKey && entryId)
+        details = await fetchTransactionDetails(operationDate, docKey, entryId, session)
+      } catch (e) {
+        console.warn(e) // TODO
+      }
+
+      transactions.push({
+        ...transaction as object,
+        details 
+      })
+    }))
+  }
+  return []
+}
+

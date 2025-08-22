@@ -4,7 +4,7 @@ import get, { getArray, getNumber, getOptArray, getOptString, getString } from '
 import { APP_BUILD, APP_VERSION, Auth, Device, FetchedChecking, FetchedLoanDeposit, OS_VERSION, Preferences, Session } from './models'
 import { defaultsDeep } from 'lodash'
 import { generateRandomString } from '../../common/utils'
-import { formatRFC1123DateTime, signRequest } from './utils'
+import { formatRFC1123DateTime, signRequest, formatDateTimeToUtcBounded } from './utils'
 import { BankMessageError, InvalidLoginOrPasswordError, InvalidOtpCodeError, InvalidPreferencesError } from '../../errors'
 
 interface AccountApiRequest {
@@ -397,7 +397,7 @@ async function fetchApiConnector (serviceId: string, params: Record<string, unkn
     },
     parse: JSON.parse,
     sanitizeRequestLog: { url: { query: { keycloakSessionToken: true } } },
-    sanitizeResponseLog: { url: { query: { keycloakSessionToken: true } } }
+    sanitizeResponseLog: { url: { query: { keycloakSessionToken: true } }, body: true }
   })
   session.requestIndex++
   return response.body
@@ -481,4 +481,72 @@ export async function fetchAccountOperations (acctKey: string, fromDate: Date, t
     }
   }
   return result
+}
+
+export async function fetchGetClientInfoV3 (session: Session): Promise<unknown> {
+  const response = await fetchApiConnector('CLIENTS_GET_CLIENT_INFO_V3', {}, session)
+  assert(getNumber(response, 'code') === 0, 'CLIENTS_GET_CLIENT_INFO_V3 error')
+  return get(response, 'result', null)
+}
+
+// TODO: pagination?, Req fields
+export async function fetchAccountOperationsV2 (acctKey: string, fromDate: Date, toDate: Date, session: Session): Promise<unknown[]> {
+  assert(session.clientKey !== null)
+
+  const transactions = []
+  const query = {
+    clientKey: session.clientKey,
+    operationDateTimeUpperBound: formatDateTimeToUtcBounded(toDate, true),
+    operationDateTimeLowerBound: formatDateTimeToUtcBounded(fromDate, false),
+    lastOperationsFlag: 'Y',
+    accountIds: acctKey,
+    // includeFields: 'canSplitUntil,clientKey,prodGroup,docKey,entryId,essId,operationTitle,nominationOriginal,beneficiary,docNomination,nomination,merchantId,essServiceId,groupImageId,postDate,authDate,operationDate,bonusPoint,status,canCopy,amount,ccy,merchantName,entryGroupNameId,sourceEntryGroup,cashbackAmount,productName,prodGroup,entryType,printSwift,isInternalOperation,transferBankBic,printFormType,sourceEntryGroup,merchantNameInt,counterPartyClient,hasTransferBack,essId,bonusInfo,essServiceId,bonusPoint,amountBase,pfmId,pfmTags,pfmSplit,pfmTagId,pfmTagName,pfmCatName,pfmForecast,pfmRecurring,pfmComputable,pfmParentCatId,pfmParentCatName,pfmCatId,bonusType,accountKey,bonusPoint,bonusType,beneficiaryAccount,bonusType,bonusPoint,authDate,merchantClientId,printAccountNo,mccCode'
+    includeFields: 'docKey,entryId,operationDate' // required to get details
+  }
+
+  const response = await fetch(`https://rb-api.bog.ge/transactional/statements?${qs.stringify(query)}`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${session.authorizationBearer}`,
+      'lang-code': 'EN',
+      'accept-encoding': 'gzip',
+      'user-agent': 'okhttp/4.12.0'
+    },
+    sanitizeRequestLog: { headers: { authorization: true } }
+  })
+
+  assert(response.status === 200, 'Cannot get transactions')
+
+  transactions.push(get(response.body, 'data'), [])
+  return transactions
+}
+
+export async function fetchTransactionDetails (operationDate: string, docKey: number, entryId: string, session: Session): Promise<unknown> {
+  const query = {
+    operationDate,
+    docKey,
+    entryId,
+    includeFields: 'canSplitUntil,clientKey,prodGroup,docKey,entryId,essId,operationTitle,nominationOriginal,beneficiary,nomination,merchantId,essServiceId,groupImageId,postDate,authDate,operationDate,bonusPoint,status,canCopy,amount,ccy,merchantName,entryGroupNameId,sourceEntryGroup,cashbackAmount,productName,entryType,printSwift,isInternalOperation,transferBankBic,printFormType,merchantNameInt,counterPartyClient,hasTransferBack,bonusInfo,amountBase,pfmId,pfmTags,pfmSplit,pfmTagId,pfmTagName,pfmCatName,pfmForecast,pfmRecurring,pfmComputable,pfmParentCatId,pfmParentCatName,pfmCatId,bonusType,accountKey,beneficiaryAccount,merchantClientId,printAccountNo,cardId,cardLastDigits,accountNumber,docNominationGe,docNominationEn,approvalCode,ccoRate,docNomination,benefBankNameGe,benefBankNameEn,mccCode'
+  }
+  const response = await fetch(`https://rb-api.bog.ge/v1/transactional/statements/details?${qs.stringify(query)}`, {
+    method: 'GET',
+    headers: {
+      'x-channel': 'MOBILE',
+      'x-forwarded': '192.168.0.48',
+      'x-token': session.authorizationBearer,
+      'x-ext-customer-id': '',
+      'x-os': 'ANDROID',
+      'x-os-version': '29',
+      'x-app-version': APP_BUILD,
+      'x-device': `${session.auth.device.manufacturer} ${session.auth.device.model}`,
+      'x-lang': 'EN',
+      'x-dark-mode': 'N',
+      'accept-encoding': 'gzip',
+      'user-agent': 'okhttp/4.12.0'
+    },
+    sanitizeRequestLog: { headers: { 'x-token': true } }
+  })
+
+  assert(getNumber(response.body, 'code') === 0, 'Cannot get transaction details', get(response.body, 'error'))
+  return get(response.body, 'result')
 }

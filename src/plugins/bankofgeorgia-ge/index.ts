@@ -1,5 +1,5 @@
 import { Account, ExtendedTransaction, ScrapeFunc } from '../../types/zenmoney'
-import { fetchAccounts, fetchTransactions, login } from './api'
+import { fetchAccounts, fetchTransactions, fetchTransactionsV2, login } from './api'
 import { convertAccounts, convertTransaction } from './converters'
 import { Auth, Preferences } from './models'
 import { adjustTransactions } from '../../common/transactionGroupHandler'
@@ -18,6 +18,10 @@ export const scrape: ScrapeFunc<Preferences> = async ({ preferences, fromDate, t
     if (ZenMoney.isAccountSkipped(product.account.id)) {
       return
     }
+    // TODO parsing
+    const apiTransactionsV2 = await fetchTransactionsV2(product, fromDate, toDate ?? new Date(), session)
+    console.debug('V2 Transactions: ', apiTransactionsV2)
+
     const apiTransactions = await fetchTransactions(product, fromDate, toDate ?? new Date(), session)
     for (const apiTransaction of apiTransactions) {
       const transaction = convertTransaction(apiTransaction, product)

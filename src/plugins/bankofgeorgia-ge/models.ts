@@ -21,6 +21,7 @@ export interface Session {
   accessToken: string
   refreshToken: string
   requestIndex: number
+  clientKey: number | null
 }
 
 export interface Preferences {
@@ -57,6 +58,6 @@ export interface ConvertedLoan {
 
 export type ConvertedProduct = ConvertedAccount | ConvertedLoan
 
-export const APP_VERSION = '5.8.3'
-export const APP_BUILD = '424'
+export const APP_VERSION = '8.4.1'
+export const APP_BUILD = '3238'
 export const OS_VERSION = '10'

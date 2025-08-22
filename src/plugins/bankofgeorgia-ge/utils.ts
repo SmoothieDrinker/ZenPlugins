@@ -37,3 +37,10 @@ export function formatRFC1123DateTime (date: Date): string {
     `${padStart(date.getUTCMinutes().toString(), 2, '0')}:` +
     `${padStart(date.getUTCSeconds().toString(), 2, '0')} GMT`
 }
+
+export function formatDateTimeToUtcBounded (date: Date, boundUp: boolean) {
+  date.setHours(boundUp ? 23 : 0)
+  date.setMinutes(boundUp ? 59 : 0)
+  date.setSeconds(boundUp ? 59 : 0)
+  return date.toISOString().replace('Z', '')
+}
