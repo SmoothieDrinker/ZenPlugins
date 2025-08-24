@@ -2,6 +2,7 @@ import { Device } from './models'
 import forge from 'node-forge'
 import rs from 'jsrsasign'
 import { padStart, sortBy } from 'lodash'
+import moment from 'moment'
 
 export function generateDevice (): Device {
   return {
@@ -42,5 +43,5 @@ export function formatDateTimeToUtcBounded (date: Date, boundUp: boolean) {
   date.setHours(boundUp ? 23 : 0)
   date.setMinutes(boundUp ? 59 : 0)
   date.setSeconds(boundUp ? 59 : 0)
-  return date.toISOString().replace('Z', '')
+  return moment(date).utc().format('YYYY-MM-DDTHH:mm:ss')
 }

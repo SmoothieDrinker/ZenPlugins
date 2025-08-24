@@ -500,11 +500,14 @@ export async function fetchAccountOperationsV2 (acctKey: string, fromDate: Date,
     operationDateTimeLowerBound: formatDateTimeToUtcBounded(fromDate, false),
     lastOperationsFlag: 'Y',
     accountIds: acctKey,
+    // isInternalOperation: 'N',
+    // includeAggregations: 'docDirection',
+    // pfmComputable: '1',
     // includeFields: 'canSplitUntil,clientKey,prodGroup,docKey,entryId,essId,operationTitle,nominationOriginal,beneficiary,docNomination,nomination,merchantId,essServiceId,groupImageId,postDate,authDate,operationDate,bonusPoint,status,canCopy,amount,ccy,merchantName,entryGroupNameId,sourceEntryGroup,cashbackAmount,productName,prodGroup,entryType,printSwift,isInternalOperation,transferBankBic,printFormType,sourceEntryGroup,merchantNameInt,counterPartyClient,hasTransferBack,essId,bonusInfo,essServiceId,bonusPoint,amountBase,pfmId,pfmTags,pfmSplit,pfmTagId,pfmTagName,pfmCatName,pfmForecast,pfmRecurring,pfmComputable,pfmParentCatId,pfmParentCatName,pfmCatId,bonusType,accountKey,bonusPoint,bonusType,beneficiaryAccount,bonusType,bonusPoint,authDate,merchantClientId,printAccountNo,mccCode'
     includeFields: 'docKey,entryId,operationDate' // required to get details
   }
 
-  const response = await fetch(`https://rb-api.bog.ge/transactional/statements?${qs.stringify(query)}`, {
+  const response = await fetch(`https://rb-api.bog.ge/transactional/statements?${encodeURIComponent(qs.stringify(query))}`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${session.authorizationBearer}`,
@@ -528,7 +531,7 @@ export async function fetchTransactionDetails (operationDate: string, docKey: nu
     entryId,
     includeFields: 'canSplitUntil,clientKey,prodGroup,docKey,entryId,essId,operationTitle,nominationOriginal,beneficiary,nomination,merchantId,essServiceId,groupImageId,postDate,authDate,operationDate,bonusPoint,status,canCopy,amount,ccy,merchantName,entryGroupNameId,sourceEntryGroup,cashbackAmount,productName,entryType,printSwift,isInternalOperation,transferBankBic,printFormType,merchantNameInt,counterPartyClient,hasTransferBack,bonusInfo,amountBase,pfmId,pfmTags,pfmSplit,pfmTagId,pfmTagName,pfmCatName,pfmForecast,pfmRecurring,pfmComputable,pfmParentCatId,pfmParentCatName,pfmCatId,bonusType,accountKey,beneficiaryAccount,merchantClientId,printAccountNo,cardId,cardLastDigits,accountNumber,docNominationGe,docNominationEn,approvalCode,ccoRate,docNomination,benefBankNameGe,benefBankNameEn,mccCode'
   }
-  const response = await fetch(`https://rb-api.bog.ge/v1/transactional/statements/details?${qs.stringify(query)}`, {
+  const response = await fetch(`https://rb-api.bog.ge/v1/transactional/statements/details?${encodeURIComponent(qs.stringify(query))}`, {
     method: 'GET',
     headers: {
       'x-channel': 'MOBILE',
